@@ -486,6 +486,19 @@
                     <div class="bg-karta-surface border border-karta-border rounded-lg p-6">
                         <h3 class="text-xl font-bold mb-4 text-karta-primary">Company Profile & Configuration</h3>
                         <form id="settingsForm" class="space-y-4">
+                             <!-- LOGO UPLOAD SECTION -->
+                             <div>
+                                <label class="block text-xs text-gray-400 mb-1">Brand Logo</label>
+                                <div class="flex items-center gap-4">
+                                    <div class="h-16 w-16 bg-gray-800 rounded flex items-center justify-center overflow-hidden border border-gray-700">
+                                        <img id="confLogoPreview" src="" class="h-full w-full object-contain hidden">
+                                        <i id="confLogoPlaceholder" class="fa-solid fa-image text-gray-600"></i>
+                                    </div>
+                                    <input type="file" id="confLogoInput" accept="image/*" class="text-xs text-gray-400">
+                                    <button type="button" onclick="clearLogo()" class="text-xs text-red-500 hover:text-red-400">Remove</button>
+                                </div>
+                            </div>
+
                             <div>
                                 <label class="block text-xs text-gray-400 mb-1">Company Name</label>
                                 <input type="text" id="confName" class="input-field">
@@ -640,7 +653,7 @@
             </form>
         </div>
 
-        <!-- NEW: Customer History & PDF Modal -->
+        <!-- Customer History & PDF Modal -->
         <div id="custHistoryModal" class="hidden modal-content bg-karta-surface border border-karta-border p-6 rounded-lg w-full max-w-4xl flex flex-col max-h-[90vh]">
             <div class="flex justify-between items-start mb-6">
                 <div>
@@ -690,17 +703,78 @@
                 </div>
             </div>
         </div>
+        
+        <!-- NEW: Supplier History Modal -->
+        <div id="supHistoryModal" class="hidden modal-content bg-karta-surface border border-karta-border p-6 rounded-lg w-full max-w-4xl flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-start mb-6">
+                <div>
+                    <h3 class="text-2xl font-bold text-white" id="shName">Supplier Name</h3>
+                    <p class="text-gray-400 text-sm mt-1"><i class="fa-solid fa-phone mr-2"></i><span id="shPhone"></span> | <i class="fa-solid fa-user-tie mx-2"></i><span id="shContact"></span></p>
+                </div>
+                <div class="text-right">
+                    <button onclick="closeModal()" class="text-gray-400 hover:text-white mb-2 block ml-auto"><i class="fa-solid fa-times fa-lg"></i></button>
+                    <button onclick="downloadSupplierPDF()" class="bg-white text-black px-4 py-2 rounded font-bold text-xs hover:bg-gray-200 transition">
+                        <i class="fa-solid fa-file-pdf mr-2"></i>Export Statement
+                    </button>
+                </div>
+            </div>
 
-        <!-- Payment Modal -->
+            <div class="grid grid-cols-2 gap-4 mb-6">
+                <div class="bg-white/5 p-4 rounded border border-karta-border">
+                    <div class="text-gray-400 text-xs uppercase">Current Balance Due</div>
+                    <div class="text-2xl font-bold text-red-500 mt-1" id="shBalance">$0.00</div>
+                </div>
+                <div class="bg-white/5 p-4 rounded border border-karta-border">
+                    <div class="text-gray-400 text-xs uppercase">Total Purchased</div>
+                    <div class="text-2xl font-bold text-white mt-1" id="shTotalPurchased">$0.00</div>
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-hidden flex flex-col border border-karta-border rounded-lg">
+                <div class="bg-white/5 p-3 font-bold border-b border-karta-border text-sm">Supplier Transaction History</div>
+                <div class="overflow-y-auto flex-1">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-karta-surface text-gray-400 sticky top-0">
+                            <tr>
+                                <th class="p-3">Date</th>
+                                <th class="p-3">Type</th>
+                                <th class="p-3">Ref</th>
+                                <th class="p-3">Items/Desc</th>
+                                <th class="p-3 text-right">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody id="shTableBody" class="divide-y divide-gray-800">
+                            <!-- Populated via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Customer Payment Modal -->
         <div id="payModal" class="hidden modal-content bg-karta-surface border border-karta-border p-6 rounded-lg w-full max-w-sm">
-            <h3 class="text-xl font-bold mb-4 text-white">Settle Due Amount</h3>
+            <h3 class="text-xl font-bold mb-4 text-white">Receive Payment</h3>
             <p id="payCustName" class="text-gray-400 mb-4 text-sm"></p>
             <form id="payForm" class="space-y-4">
                 <input type="hidden" id="payCustId">
-                <input type="number" step="0.01" id="payAmount" placeholder="Amount to Pay" required class="input-field">
+                <input type="number" step="0.01" id="payAmount" placeholder="Amount Received" required class="input-field">
                 <div class="flex justify-end gap-2 mt-4">
                     <button type="button" onclick="closeModal()" class="px-4 py-2 bg-gray-700 rounded text-white">Cancel</button>
-                    <button type="submit" class="px-4 py-2 bg-green-600 text-white font-bold rounded">Record Payment</button>
+                    <button type="submit" class="px-4 py-2 bg-green-600 text-white font-bold rounded">Record Receipt</button>
+                </div>
+            </form>
+        </div>
+        
+        <!-- NEW: Supplier Payment Modal -->
+        <div id="supPayModal" class="hidden modal-content bg-karta-surface border border-karta-border p-6 rounded-lg w-full max-w-sm">
+            <h3 class="text-xl font-bold mb-4 text-white">Record Payment to Supplier</h3>
+            <p id="spSupName" class="text-gray-400 mb-4 text-sm"></p>
+            <form id="supPayForm" class="space-y-4">
+                <input type="hidden" id="spSupId">
+                <input type="number" step="0.01" id="spAmount" placeholder="Amount Paid" required class="input-field">
+                <div class="flex justify-end gap-2 mt-4">
+                    <button type="button" onclick="closeModal()" class="px-4 py-2 bg-gray-700 rounded text-white">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-red-600 text-white font-bold rounded">Record Payment</button>
                 </div>
             </form>
         </div>
@@ -774,11 +848,15 @@
         <div id="invoice-print-view">
             <!-- Header -->
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
-                <div>
-                    <h1 style="font-size: 24px; font-weight: bold; margin: 0; color: #000;" id="invCompName">KARTA PHARMACY</h1>
-                    <p style="margin: 2px 0; font-size: 14px;" id="invCompAddr">123 Green Street</p>
-                    <p style="margin: 2px 0; font-size: 14px;" id="invCompPhone">Tel: 9800000000</p>
-                    <p style="margin: 2px 0; font-size: 14px;" id="invCompTax">VAT Reg: 123456789</p>
+                <div style="display: flex; gap: 15px;">
+                     <!-- Logo Container -->
+                     <img id="printInvLogo" src="" style="width: 60px; height: 60px; object-fit: contain; display: none;">
+                    <div>
+                        <h1 style="font-size: 24px; font-weight: bold; margin: 0; color: #000;" id="invCompName">KARTA PHARMACY</h1>
+                        <p style="margin: 2px 0; font-size: 14px;" id="invCompAddr">123 Green Street</p>
+                        <p style="margin: 2px 0; font-size: 14px;" id="invCompPhone">Tel: 9800000000</p>
+                        <p style="margin: 2px 0; font-size: 14px;" id="invCompTax">VAT Reg: 123456789</p>
+                    </div>
                 </div>
                 <div style="text-align: right;">
                     <h2 style="font-size: 20px; color: #333; margin: 0;">INVOICE</h2>
@@ -848,7 +926,7 @@
         const APP_STATE = {
             config: {
                 name: 'Karta Pharmacy', address: 'Kathmandu, Nepal', phone: '+977-9800000000',
-                taxId: 'PAN-101010', vatRate: 13, currency: 'Rs.'
+                taxId: 'PAN-101010', vatRate: 13, currency: 'Rs.', logo: null
             },
             products: [],   
             customers: [], 
@@ -863,6 +941,10 @@
         let currentReportData = [];
         let currentReportTitle = ""; // Track for printing
         let activeCustomerReportId = null; 
+        let activeSupplierReportId = null;
+        
+        // Settings Temp Var
+        let tempLogoBase64 = null;
 
         function saveDB() {
             localStorage.setItem(DB_KEY, JSON.stringify(db));
@@ -932,6 +1014,7 @@
             document.querySelectorAll('form').forEach(f => f.reset());
             editTxnId = null;
             activeCustomerReportId = null;
+            activeSupplierReportId = null;
         }
 
         function openPaymentModal(custId, custName) {
@@ -1134,26 +1217,35 @@
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
 
+            // Logo for PDF
+            let yPos = 20;
+            if(db.config.logo) {
+                try {
+                    doc.addImage(db.config.logo, 'JPEG', 14, 15, 20, 20); // x, y, w, h
+                    yPos = 40; // Push text down if logo exists
+                } catch(e) { console.error("Logo error", e); }
+            }
+
             // Header
             doc.setFontSize(18);
-            doc.text(db.config.name, 14, 20);
+            doc.text(db.config.name, 14, yPos);
             doc.setFontSize(10);
-            doc.text(db.config.address, 14, 25);
-            doc.text("Customer Account Statement", 14, 35);
+            doc.text(db.config.address, 14, yPos + 5);
+            doc.text("Customer Account Statement", 14, yPos + 15);
             
             // Customer Details
             doc.setDrawColor(200);
-            doc.line(14, 38, 196, 38);
+            doc.line(14, yPos + 18, 196, yPos + 18);
             
             doc.setFontSize(12);
-            doc.text(`Customer: ${cust.name}`, 14, 48);
+            doc.text(`Customer: ${cust.name}`, 14, yPos + 28);
             doc.setFontSize(10);
-            doc.text(`Phone: ${cust.phone}`, 14, 53);
-            doc.text(`Address: ${cust.address || '-'}`, 14, 58);
+            doc.text(`Phone: ${cust.phone}`, 14, yPos + 33);
+            doc.text(`Address: ${cust.address || '-'}`, 14, yPos + 38);
             
             // Summary
-            doc.text(`Current Balance Due: ${db.config.currency} ${cust.balance.toFixed(2)}`, 140, 48);
-            doc.text(`Total Lifetime Spend: ${db.config.currency} ${txns.filter(t=>t.type==='sale').reduce((a,x)=>a+x.total,0).toFixed(2)}`, 140, 53);
+            doc.text(`Current Balance Due: ${db.config.currency} ${cust.balance.toFixed(2)}`, 140, yPos + 28);
+            doc.text(`Total Lifetime Spend: ${db.config.currency} ${txns.filter(t=>t.type==='sale').reduce((a,x)=>a+x.total,0).toFixed(2)}`, 140, yPos + 33);
 
             // Table
             const tableData = txns.map(t => [
@@ -1165,7 +1257,7 @@
             ]);
 
             doc.autoTable({
-                startY: 65,
+                startY: yPos + 45,
                 head: [['Date', 'Type', 'Ref #', 'Description / Items', 'Amount']],
                 body: tableData,
                 theme: 'grid',
@@ -1196,6 +1288,148 @@
             saveDB();
             closeModal();
         };
+        
+        // NEW: Supplier History & Logic
+        function viewSupplierHistory(id) {
+            activeSupplierReportId = id;
+            const sup = db.suppliers.find(s => s.id === id);
+            if(!sup) return;
+
+            // Fetch Transactions (Purchases and Payments Out)
+            const txns = db.transactions.filter(t => t.entityId === id && (t.type === 'purchase' || t.type === 'payment_out'))
+                                        .sort((a,b) => new Date(b.date) - new Date(a.date));
+                                        
+            const totalPurchased = txns.filter(t => t.type === 'purchase').reduce((a,x) => a + x.total, 0);
+
+            // Populate Header
+            document.getElementById('shName').innerText = sup.name;
+            document.getElementById('shContact').innerText = sup.contact || 'N/A';
+            document.getElementById('shPhone').innerText = sup.phone || 'N/A';
+            
+            document.getElementById('shBalance').innerText = `${db.config.currency}${sup.balance.toFixed(2)}`;
+            document.getElementById('shTotalPurchased').innerText = `${db.config.currency}${totalPurchased.toFixed(2)}`;
+
+            // Populate Table
+            const tbody = document.getElementById('shTableBody');
+            tbody.innerHTML = '';
+            
+            if(txns.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-gray-500">No transactions found for this supplier.</td></tr>`;
+            } else {
+                txns.forEach(t => {
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-white/5 border-b border-gray-800 text-gray-300";
+                    
+                    let itemsStr = '-';
+                    if(t.type === 'purchase' && t.items) {
+                         itemsStr = t.items.map(i => `${i.qty}x ${i.name}`).join(', ');
+                    } else if (t.type === 'payment_out') {
+                        itemsStr = 'Payment Sent to Supplier';
+                    }
+
+                    const typeColor = t.type === 'purchase' ? 'text-blue-400' : 'text-red-400';
+                    const amountSign = t.type === 'payment_out' ? '-' : '';
+                    
+                    tr.innerHTML = `
+                        <td class="p-3">${new Date(t.date).toLocaleDateString()}</td>
+                        <td class="p-3 uppercase text-xs font-bold ${typeColor}">${t.type === 'payment_out' ? 'Payment' : 'Purchase'}</td>
+                        <td class="p-3 text-xs text-gray-500">${t.ref || '-'}</td>
+                        <td class="p-3 text-xs text-gray-400">${itemsStr}</td>
+                        <td class="p-3 text-right font-bold">${amountSign}${db.config.currency}${t.total.toFixed(2)}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+            openModal('supHistoryModal');
+        }
+
+        // NEW: Open Supplier Pay Modal
+        function openSupPayModal(id, name) {
+            document.getElementById('spSupId').value = id;
+            document.getElementById('spSupName').innerText = "Recording payment to: " + name;
+            openModal('supPayModal');
+        }
+
+        // NEW: Submit Supplier Payment
+        document.getElementById('supPayForm').onsubmit = e => {
+            e.preventDefault();
+            const supId = parseInt(document.getElementById('spSupId').value);
+            const amount = parseFloat(document.getElementById('spAmount').value);
+            
+            const sup = db.suppliers.find(s => s.id === supId);
+            if(sup) {
+                sup.balance -= amount; // Reduce debt
+                db.transactions.push({
+                    id: Date.now(),
+                    type: 'payment_out', // Payment Outflow
+                    date: new Date().toISOString(),
+                    entityId: supId,
+                    entityName: sup.name,
+                    items: [], 
+                    total: amount,
+                    tax: 0
+                });
+                saveDB();
+                closeModal();
+                alert("Payment Recorded");
+            }
+        };
+
+        // NEW: Download Supplier PDF
+        function downloadSupplierPDF() {
+            if(!activeSupplierReportId) return;
+            const sup = db.suppliers.find(s => s.id === activeSupplierReportId);
+            const txns = db.transactions.filter(t => t.entityId === activeSupplierReportId && (t.type === 'purchase' || t.type === 'payment_out'))
+                                        .sort((a,b) => new Date(b.date) - new Date(a.date));
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            let yPos = 20;
+            if(db.config.logo) {
+                try {
+                    doc.addImage(db.config.logo, 'JPEG', 14, 15, 20, 20);
+                    yPos = 40;
+                } catch(e) { }
+            }
+
+            // Header
+            doc.setFontSize(18);
+            doc.text(db.config.name, 14, yPos);
+            doc.setFontSize(10);
+            doc.text(db.config.address, 14, yPos + 5);
+            doc.text("Supplier Account Statement", 14, yPos + 15);
+            
+            doc.setDrawColor(200);
+            doc.line(14, yPos + 18, 196, yPos + 18);
+            
+            doc.setFontSize(12);
+            doc.text(`Supplier: ${sup.name}`, 14, yPos + 28);
+            doc.setFontSize(10);
+            doc.text(`Contact: ${sup.contact || '-'}`, 14, yPos + 33);
+            doc.text(`Phone: ${sup.phone || '-'}`, 14, yPos + 38);
+            
+            doc.text(`Current Balance Due: ${db.config.currency} ${sup.balance.toFixed(2)}`, 140, yPos + 28);
+
+            const tableData = txns.map(t => [
+                new Date(t.date).toLocaleDateString(),
+                t.type === 'payment_out' ? 'PAYMENT SENT' : 'PURCHASE',
+                t.ref || '-',
+                t.type === 'purchase' ? (t.items && t.items[0] ? t.items.map(i=>`${i.qty}x ${i.name}`).join(', ') : '-') : 'Payment to Supplier',
+                `${t.type === 'payment_out' ? '-' : ''}${db.config.currency} ${t.total.toFixed(2)}`
+            ]);
+
+            doc.autoTable({
+                startY: yPos + 45,
+                head: [['Date', 'Type', 'Ref', 'Details', 'Amount']],
+                body: tableData,
+                theme: 'grid',
+                styles: { fontSize: 8 },
+                headStyles: { fillColor: [66, 66, 66] }
+            });
+            
+            doc.save(`${sup.name.replace(/\s+/g, '_')}_Statement.pdf`);
+        }
 
         function renderSuppliers() {
             const tbody = document.getElementById('supBody');
@@ -1210,9 +1444,11 @@
                     <td class="p-3 text-gray-400">${s.contact}</td>
                     <td class="p-3 text-gray-400">${s.phone}</td>
                     <td class="p-3 text-gray-400 text-xs">${s.taxId}</td>
-                    <td class="p-3 text-right text-red-400">${db.config.currency}${s.balance}</td>
-                    <td class="p-3 text-center">
-                        <button onclick="delSup(${s.id})" class="text-red-500 hover:text-white transition"><i class="fa-solid fa-trash"></i></button>
+                    <td class="p-3 text-right text-red-400 font-bold">${db.config.currency}${s.balance.toFixed(2)}</td>
+                    <td class="p-3 text-center flex justify-center gap-2">
+                         <button onclick="viewSupplierHistory(${s.id})" class="text-gray-400 hover:text-white" title="History"><i class="fa-solid fa-list-ul"></i></button>
+                         <button onclick="openSupPayModal(${s.id}, '${s.name}')" class="text-green-500 hover:text-green-400" title="Settle Balance"><i class="fa-solid fa-money-bill-wave"></i></button>
+                         <button onclick="delSup(${s.id})" class="text-red-500 hover:text-red-400" title="Delete"><i class="fa-solid fa-trash"></i></button>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -1661,6 +1897,15 @@
             document.getElementById('report-print-view').classList.add('hidden');
 
             // Populate print area directly
+            // Show logo if exists
+            const logoImg = document.getElementById('printInvLogo');
+            if(db.config.logo) {
+                logoImg.src = db.config.logo;
+                logoImg.style.display = 'block';
+            } else {
+                logoImg.style.display = 'none';
+            }
+
             document.getElementById('invCompName').innerText = db.config.name;
             document.getElementById('invCompAddr').innerText = db.config.address;
             document.getElementById('invCompPhone').innerText = db.config.phone;
@@ -1699,8 +1944,15 @@
             reportView.classList.remove('hidden');
 
             // GENERATE REPORT HTML FOR PRINT
+            // Include Logo
+            let logoHtml = '';
+            if(db.config.logo) {
+                logoHtml = `<img src="${db.config.logo}" style="width: 50px; height: 50px; object-fit: contain; margin-bottom: 10px;">`;
+            }
+
             let html = `
                 <div style="text-align:center; margin-bottom: 20px;">
+                    ${logoHtml}
                     <h1 style="font-size: 24px; font-weight: bold; margin:0;">${db.config.name}</h1>
                     <p style="margin:2px 0;">${db.config.address} | ${db.config.phone}</p>
                     <h2 style="font-size: 18px; margin-top: 10px; text-decoration: underline;">${currentReportTitle}</h2>
@@ -1714,10 +1966,6 @@
                     <tr style="background: #f0f0f0; border-bottom: 2px solid black;">`;
             
             // Derive headers from currentReportData logic (simplified based on known columns in currentReportData)
-            // A safer bet is to reuse the screen headers or define specific ones.
-            // Since `currentReportData` is just the raw transaction objects, we map manually based on Title context if needed,
-            // or we just output a generic table based on what we see in the screen.
-            // Better: Reconstruct table based on current report type stored in currentReportTitle context?
             
             if(currentReportTitle.includes("VAT")) {
                 html += `<th style="padding:5px; text-align:left;">Date</th>
@@ -1764,6 +2012,29 @@
 
 
         // --- Settings ---
+        // Logo Handling
+        document.getElementById('confLogoInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if(file) {
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                    tempLogoBase64 = evt.target.result;
+                    document.getElementById('confLogoPreview').src = tempLogoBase64;
+                    document.getElementById('confLogoPreview').classList.remove('hidden');
+                    document.getElementById('confLogoPlaceholder').classList.add('hidden');
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        function clearLogo() {
+            tempLogoBase64 = ''; // Empty string triggers removal
+            document.getElementById('confLogoInput').value = '';
+            document.getElementById('confLogoPreview').src = '';
+            document.getElementById('confLogoPreview').classList.add('hidden');
+            document.getElementById('confLogoPlaceholder').classList.remove('hidden');
+        }
+
         document.getElementById('settingsForm').onsubmit = e => {
             e.preventDefault();
             db.config.name = document.getElementById('confName').value;
@@ -1772,6 +2043,12 @@
             db.config.taxId = document.getElementById('confTax').value;
             db.config.vatRate = parseFloat(document.getElementById('confVatRate').value);
             db.config.currency = document.getElementById('confCurr').value;
+
+            // Save Logo if changed
+            if(tempLogoBase64 !== null) {
+                db.config.logo = tempLogoBase64;
+            }
+
             saveDB();
             alert("Settings Saved");
         };
@@ -1783,6 +2060,17 @@
             document.getElementById('confTax').value = db.config.taxId;
             document.getElementById('confVatRate').value = db.config.vatRate;
             document.getElementById('confCurr').value = db.config.currency;
+
+            // Load Logo
+            if(db.config.logo) {
+                document.getElementById('confLogoPreview').src = db.config.logo;
+                document.getElementById('confLogoPreview').classList.remove('hidden');
+                document.getElementById('confLogoPlaceholder').classList.add('hidden');
+                tempLogoBase64 = db.config.logo; // Initialize temp to current
+            } else {
+                clearLogo();
+                tempLogoBase64 = null; // Reset temp
+            }
         }
 
         // --- Reports Export Logic ---
