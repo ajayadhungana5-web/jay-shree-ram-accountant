@@ -11,6 +11,9 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- jsPDF & AutoTable for PDF Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
 
     <script>
         tailwind.config = {
@@ -296,12 +299,14 @@
                         </div>
 
                         <div class="p-4 bg-white/5 border-t border-karta-border space-y-2">
-                            <div class="flex justify-between text-xs text-gray-400">
+                            <div class="flex justify-between text-xs text-gray-400 items-center">
                                 <span>Subtotal</span>
                                 <span id="posSubTotal">$0.00</span>
                             </div>
-                            <div class="flex justify-between text-xs text-gray-400">
-                                <span>VAT (<span id="posVatRate">0</span>%)</span>
+                            <div class="flex justify-between text-xs text-gray-400 items-center">
+                                <label class="flex items-center cursor-pointer select-none">
+                                    <input type="checkbox" id="posVatToggle" checked onchange="renderCart()" class="mr-2"> Apply VAT (<span id="posVatRate">0</span>%)
+                                </label>
                                 <span id="posTax">$0.00</span>
                             </div>
                             <div class="flex justify-between text-xl font-bold text-karta-primary border-t border-gray-700 pt-2">
@@ -444,15 +449,15 @@
                             </div>
                             <div class="flex-1 flex justify-end gap-2">
                                 <button onclick="exportReportCSV()" class="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded font-bold flex items-center gap-2"><i class="fa-solid fa-file-csv"></i> Export CSV</button>
-                                <button onclick="window.print()" class="bg-white text-black px-4 py-2 rounded font-bold flex items-center gap-2"><i class="fa-solid fa-file-pdf"></i> Print PDF</button>
+                                <button onclick="printReport()" class="bg-white text-black px-4 py-2 rounded font-bold flex items-center gap-2"><i class="fa-solid fa-print"></i> Print Report</button>
                             </div>
                         </div>
                         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
                             <button onclick="runReports('daily')" class="bg-gray-700 hover:bg-gray-600 text-white py-2 rounded text-xs">Daily Report</button>
                             <button onclick="runReports('sales')" class="bg-gray-700 hover:bg-gray-600 text-white py-2 rounded text-xs">Sales Report</button>
+                            <button onclick="runReports('vat')" class="bg-gray-700 hover:bg-gray-600 text-white py-2 rounded text-xs">VAT Report</button>
                             <button onclick="runReports('purchase')" class="bg-gray-700 hover:bg-gray-600 text-white py-2 rounded text-xs">Purchase Report</button>
                             <button onclick="runReports('expense')" class="bg-gray-700 hover:bg-gray-600 text-white py-2 rounded text-xs">Expense Report</button>
-                            <button onclick="runReports('trading')" class="bg-gray-700 hover:bg-gray-600 text-white py-2 rounded text-xs">Trading Account</button>
                             <button onclick="runReports('balance')" class="bg-gray-700 hover:bg-gray-600 text-white py-2 rounded text-xs">Balance Sheet</button>
                         </div>
                     </div>
@@ -635,6 +640,57 @@
             </form>
         </div>
 
+        <!-- NEW: Customer History & PDF Modal -->
+        <div id="custHistoryModal" class="hidden modal-content bg-karta-surface border border-karta-border p-6 rounded-lg w-full max-w-4xl flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-start mb-6">
+                <div>
+                    <h3 class="text-2xl font-bold text-white" id="chName">Customer Name</h3>
+                    <p class="text-gray-400 text-sm mt-1"><i class="fa-solid fa-phone mr-2"></i><span id="chPhone"></span> | <i class="fa-solid fa-location-dot mx-2"></i><span id="chAddr"></span></p>
+                </div>
+                <div class="text-right">
+                    <button onclick="closeModal()" class="text-gray-400 hover:text-white mb-2 block ml-auto"><i class="fa-solid fa-times fa-lg"></i></button>
+                    <button onclick="downloadCustomerPDF()" class="bg-white text-black px-4 py-2 rounded font-bold text-xs hover:bg-gray-200 transition">
+                        <i class="fa-solid fa-file-pdf mr-2"></i>Export PDF Statement
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-4 mb-6">
+                <div class="bg-white/5 p-4 rounded border border-karta-border">
+                    <div class="text-gray-400 text-xs uppercase">Current Balance</div>
+                    <div class="text-2xl font-bold text-white mt-1" id="chBalance">$0.00</div>
+                </div>
+                <div class="bg-white/5 p-4 rounded border border-karta-border">
+                    <div class="text-gray-400 text-xs uppercase">Total Spent</div>
+                    <div class="text-2xl font-bold text-karta-primary mt-1" id="chTotalSpent">$0.00</div>
+                </div>
+                <div class="bg-white/5 p-4 rounded border border-karta-border">
+                    <div class="text-gray-400 text-xs uppercase">Total Transactions</div>
+                    <div class="text-2xl font-bold text-blue-400 mt-1" id="chTxnCount">0</div>
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-hidden flex flex-col border border-karta-border rounded-lg">
+                <div class="bg-white/5 p-3 font-bold border-b border-karta-border text-sm">Transaction History</div>
+                <div class="overflow-y-auto flex-1">
+                    <table class="w-full text-left text-xs" id="chTableContainer">
+                        <thead class="bg-karta-surface text-gray-400 sticky top-0">
+                            <tr>
+                                <th class="p-3">Date</th>
+                                <th class="p-3">Type</th>
+                                <th class="p-3">Ref / Invoice</th>
+                                <th class="p-3">Items</th>
+                                <th class="p-3 text-right">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody id="chTableBody" class="divide-y divide-gray-800">
+                            <!-- Populated via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
         <!-- Payment Modal -->
         <div id="payModal" class="hidden modal-content bg-karta-surface border border-karta-border p-6 rounded-lg w-full max-w-sm">
             <h3 class="text-xl font-bold mb-4 text-white">Settle Due Amount</h3>
@@ -714,66 +770,74 @@
 
     <!-- Hidden Printable Invoice Area -->
     <div id="printable-area">
-        <!-- Header -->
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
-            <div>
-                <h1 style="font-size: 24px; font-weight: bold; margin: 0; color: #000;" id="invCompName">KARTA PHARMACY</h1>
-                <p style="margin: 2px 0; font-size: 14px;" id="invCompAddr">123 Green Street</p>
-                <p style="margin: 2px 0; font-size: 14px;" id="invCompPhone">Tel: 9800000000</p>
-                <p style="margin: 2px 0; font-size: 14px;" id="invCompTax">VAT Reg: 123456789</p>
+        <!-- INVOICE VIEW -->
+        <div id="invoice-print-view">
+            <!-- Header -->
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
+                <div>
+                    <h1 style="font-size: 24px; font-weight: bold; margin: 0; color: #000;" id="invCompName">KARTA PHARMACY</h1>
+                    <p style="margin: 2px 0; font-size: 14px;" id="invCompAddr">123 Green Street</p>
+                    <p style="margin: 2px 0; font-size: 14px;" id="invCompPhone">Tel: 9800000000</p>
+                    <p style="margin: 2px 0; font-size: 14px;" id="invCompTax">VAT Reg: 123456789</p>
+                </div>
+                <div style="text-align: right;">
+                    <h2 style="font-size: 20px; color: #333; margin: 0;">INVOICE</h2>
+                    <p style="margin: 2px 0;">#<span id="invNo">INV-001</span></p>
+                    <p style="margin: 2px 0;">Date: <span id="invDate">2025-01-01</span></p>
+                </div>
             </div>
-            <div style="text-align: right;">
-                <h2 style="font-size: 20px; color: #333; margin: 0;">INVOICE</h2>
-                <p style="margin: 2px 0;">#<span id="invNo">INV-001</span></p>
-                <p style="margin: 2px 0;">Date: <span id="invDate">2025-01-01</span></p>
+
+            <!-- Customer Info -->
+            <div style="margin-bottom: 20px; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                <p style="margin: 0; font-weight: bold;">Bill To:</p>
+                <p style="margin: 2px 0;" id="invCustName">Guest Customer</p>
+                <p style="margin: 2px 0;" id="invCustContact"></p>
+            </div>
+
+            <!-- Items Table -->
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px;">
+                <thead>
+                    <tr style="background: #f0f0f0; border-bottom: 2px solid #000;">
+                        <th style="padding: 8px; text-align: left;">SN</th>
+                        <th style="padding: 8px; text-align: left;">Description</th>
+                        <th style="padding: 8px; text-align: right;">Qty</th>
+                        <th style="padding: 8px; text-align: right;">Unit Price</th>
+                        <th style="padding: 8px; text-align: right;">Total</th>
+                    </tr>
+                </thead>
+                <tbody id="invItemsBody">
+                    <!-- Items -->
+                </tbody>
+            </table>
+
+            <!-- Totals -->
+            <div style="display: flex; justify-content: flex-end;">
+                <div style="width: 250px;">
+                    <div style="display: flex; justify-content: space-between; padding: 4px 0;">
+                        <span>Subtotal:</span>
+                        <span id="invSub">0.00</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 4px 0;">
+                        <span>VAT:</span>
+                        <span id="invTax">0.00</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-top: 2px solid #000; font-weight: bold; font-size: 16px;">
+                        <span>Grand Total:</span>
+                        <span id="invTotal">0.00</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div style="margin-top: 40px; text-align: center; font-size: 12px; color: #666; border-top: 1px solid #ddd; padding-top: 10px;">
+                <p>Thank you for your business. Get well soon!</p>
+                <p>Generated by KARTA System</p>
             </div>
         </div>
 
-        <!-- Customer Info -->
-        <div style="margin-bottom: 20px; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-            <p style="margin: 0; font-weight: bold;">Bill To:</p>
-            <p style="margin: 2px 0;" id="invCustName">Guest Customer</p>
-            <p style="margin: 2px 0;" id="invCustContact"></p>
-        </div>
-
-        <!-- Items Table -->
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px;">
-            <thead>
-                <tr style="background: #f0f0f0; border-bottom: 2px solid #000;">
-                    <th style="padding: 8px; text-align: left;">SN</th>
-                    <th style="padding: 8px; text-align: left;">Description</th>
-                    <th style="padding: 8px; text-align: right;">Qty</th>
-                    <th style="padding: 8px; text-align: right;">Unit Price</th>
-                    <th style="padding: 8px; text-align: right;">Total</th>
-                </tr>
-            </thead>
-            <tbody id="invItemsBody">
-                <!-- Items -->
-            </tbody>
-        </table>
-
-        <!-- Totals -->
-        <div style="display: flex; justify-content: flex-end;">
-            <div style="width: 250px;">
-                <div style="display: flex; justify-content: space-between; padding: 4px 0;">
-                    <span>Subtotal:</span>
-                    <span id="invSub">0.00</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; padding: 4px 0;">
-                    <span>VAT:</span>
-                    <span id="invTax">0.00</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; padding: 8px 0; border-top: 2px solid #000; font-weight: bold; font-size: 16px;">
-                    <span>Grand Total:</span>
-                    <span id="invTotal">0.00</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Footer -->
-        <div style="margin-top: 40px; text-align: center; font-size: 12px; color: #666; border-top: 1px solid #ddd; padding-top: 10px;">
-            <p>Thank you for your business. Get well soon!</p>
-            <p>Generated by KARTA System</p>
+        <!-- REPORT VIEW (Hidden by default) -->
+        <div id="report-print-view" class="hidden">
+            <!-- Generated via JS -->
         </div>
     </div>
 
@@ -797,6 +861,8 @@
         let cart = [];
         let editTxnId = null;
         let currentReportData = [];
+        let currentReportTitle = ""; // Track for printing
+        let activeCustomerReportId = null; 
 
         function saveDB() {
             localStorage.setItem(DB_KEY, JSON.stringify(db));
@@ -865,6 +931,7 @@
             document.querySelectorAll('.modal-content').forEach(el => el.classList.add('hidden'));
             document.querySelectorAll('form').forEach(f => f.reset());
             editTxnId = null;
+            activeCustomerReportId = null;
         }
 
         function openPaymentModal(custId, custName) {
@@ -965,18 +1032,30 @@
             
             db.customers.filter(c => c.name.toLowerCase().includes(search) || (c.address && c.address.toLowerCase().includes(search))).forEach(c => {
                 const el = document.createElement('div');
-                el.className = "bg-karta-surface border border-karta-border p-4 rounded-lg hover:border-karta-primary transition group";
+                el.className = "bg-karta-surface border border-karta-border p-4 rounded-lg hover:border-karta-primary transition group flex flex-col h-full";
+                
+                // Calculate quick stats for the card
+                const txns = db.transactions.filter(t => t.entityId === c.id);
+                const totalSpent = txns.filter(t => t.type === 'sale').reduce((a,x) => a + x.total, 0);
+
                 el.innerHTML = `
-                    <div class="flex justify-between items-start mb-2">
-                        <h4 class="font-bold text-white">${c.name}</h4>
-                        <span class="text-xs ${c.balance > 0 ? 'text-red-500' : 'text-green-500'} font-bold">Due: ${db.config.currency}${c.balance.toFixed(2)}</span>
+                    <div class="flex-1">
+                        <div class="flex justify-between items-start mb-2">
+                            <h4 class="font-bold text-white text-lg">${c.name}</h4>
+                            <span class="text-xs ${c.balance > 0 ? 'text-red-500' : 'text-green-500'} font-bold border border-current px-2 py-0.5 rounded">
+                                ${c.balance > 0 ? 'Due' : 'Bal'}: ${db.config.currency}${c.balance.toFixed(2)}
+                            </span>
+                        </div>
+                        <div class="text-xs text-gray-400 mb-1 flex items-center"><i class="fa-solid fa-location-dot w-4"></i> ${c.address || 'No Address'}</div>
+                        <div class="text-xs text-gray-400 mb-2 flex items-center"><i class="fa-solid fa-phone w-4"></i> ${c.phone}</div>
+                        <div class="text-xs text-gray-500 mt-2 mb-4">Total Orders: <span class="text-white">${txns.length}</span> | Spent: <span class="text-white">${db.config.currency}${totalSpent.toFixed(0)}</span></div>
                     </div>
-                    <div class="text-xs text-gray-400 mb-1"><i class="fa-solid fa-location-dot mr-1"></i> ${c.address || 'No Address'}</div>
-                    <div class="text-xs text-gray-400 mb-2"><i class="fa-solid fa-phone mr-1"></i> ${c.phone}</div>
                     
-                    <div class="flex justify-between items-center mt-3 pt-3 border-t border-gray-800">
-                         <span class="text-xs text-gray-500">Limit: ${db.config.currency}${c.limit}</span>
-                         ${c.balance > 0 ? `<button onclick="openPaymentModal(${c.id}, '${c.name}')" class="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-500">Settle Due</button>` : ''}
+                    <div class="mt-auto pt-3 border-t border-gray-800 flex gap-2">
+                         <button onclick="viewCustomerHistory(${c.id})" class="flex-1 bg-white/10 hover:bg-white/20 text-white text-xs py-2 rounded transition flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-list-ul"></i> History & PDF
+                         </button>
+                         ${c.balance > 0 ? `<button onclick="openPaymentModal(${c.id}, '${c.name}')" class="flex-1 text-xs bg-green-700 hover:bg-green-600 text-white px-2 py-2 rounded font-bold">Settle Due</button>` : ''}
                     </div>
                 `;
                 grid.appendChild(el);
@@ -987,6 +1066,120 @@
             db.customers.forEach(c => {
                 dl.innerHTML += `<option value="${c.name} [ID:${c.id}]">`;
             });
+        }
+
+        // --- NEW: Customer History & PDF Logic ---
+        function viewCustomerHistory(id) {
+            activeCustomerReportId = id;
+            const cust = db.customers.find(c => c.id === id);
+            if(!cust) return;
+
+            // Gather Data
+            const txns = db.transactions.filter(t => t.entityId === id).sort((a,b) => new Date(b.date) - new Date(a.date));
+            const totalSpent = txns.filter(t => t.type === 'sale').reduce((a,x) => a + x.total, 0);
+
+            // Populate Modal Header
+            document.getElementById('chName').innerText = cust.name;
+            document.getElementById('chPhone').innerText = cust.phone;
+            document.getElementById('chAddr').innerText = cust.address || "N/A";
+            
+            document.getElementById('chBalance').innerText = `${db.config.currency}${cust.balance.toFixed(2)}`;
+            document.getElementById('chBalance').className = `text-2xl font-bold mt-1 ${cust.balance > 0 ? 'text-red-500' : 'text-green-500'}`;
+            
+            document.getElementById('chTotalSpent').innerText = `${db.config.currency}${totalSpent.toFixed(2)}`;
+            document.getElementById('chTxnCount').innerText = txns.length;
+
+            // Populate Table
+            const tbody = document.getElementById('chTableBody');
+            tbody.innerHTML = '';
+            
+            if(txns.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-gray-500">No transactions found for this customer.</td></tr>`;
+            } else {
+                txns.forEach(t => {
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-white/5 border-b border-gray-800 text-gray-300";
+                    
+                    // Format Items String
+                    let itemsStr = '-';
+                    if(t.items && t.items.length > 0) {
+                        itemsStr = t.items.map(i => `${i.qty}x ${i.name}`).join(', ');
+                        if(itemsStr.length > 40) itemsStr = itemsStr.substring(0, 40) + '...';
+                    } else if (t.type === 'payment') {
+                        itemsStr = 'Payment Received';
+                    }
+
+                    // Type styling
+                    const typeColor = t.type === 'sale' ? 'text-blue-400' : (t.type === 'payment' ? 'text-green-400' : 'text-gray-400');
+                    
+                    tr.innerHTML = `
+                        <td class="p-3">${new Date(t.date).toLocaleDateString()}</td>
+                        <td class="p-3 uppercase text-xs font-bold ${typeColor}">${t.type}</td>
+                        <td class="p-3 font-mono text-xs">#${t.id.toString().slice(-6)}</td>
+                        <td class="p-3 text-xs text-gray-400">${itemsStr}</td>
+                        <td class="p-3 text-right font-bold">${db.config.currency}${t.total.toFixed(2)}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            openModal('custHistoryModal');
+        }
+
+        function downloadCustomerPDF() {
+            if(!activeCustomerReportId) return;
+            const cust = db.customers.find(c => c.id === activeCustomerReportId);
+            const txns = db.transactions.filter(t => t.entityId === activeCustomerReportId).sort((a,b) => new Date(b.date) - new Date(a.date));
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            // Header
+            doc.setFontSize(18);
+            doc.text(db.config.name, 14, 20);
+            doc.setFontSize(10);
+            doc.text(db.config.address, 14, 25);
+            doc.text("Customer Account Statement", 14, 35);
+            
+            // Customer Details
+            doc.setDrawColor(200);
+            doc.line(14, 38, 196, 38);
+            
+            doc.setFontSize(12);
+            doc.text(`Customer: ${cust.name}`, 14, 48);
+            doc.setFontSize(10);
+            doc.text(`Phone: ${cust.phone}`, 14, 53);
+            doc.text(`Address: ${cust.address || '-'}`, 14, 58);
+            
+            // Summary
+            doc.text(`Current Balance Due: ${db.config.currency} ${cust.balance.toFixed(2)}`, 140, 48);
+            doc.text(`Total Lifetime Spend: ${db.config.currency} ${txns.filter(t=>t.type==='sale').reduce((a,x)=>a+x.total,0).toFixed(2)}`, 140, 53);
+
+            // Table
+            const tableData = txns.map(t => [
+                new Date(t.date).toLocaleDateString(),
+                t.type.toUpperCase(),
+                `#${t.id.toString().slice(-6)}`,
+                t.type === 'sale' ? t.items.map(i => `${i.qty}x ${i.name}`).join(', ') : 'Payment Received',
+                `${db.config.currency} ${t.total.toFixed(2)}`
+            ]);
+
+            doc.autoTable({
+                startY: 65,
+                head: [['Date', 'Type', 'Ref #', 'Description / Items', 'Amount']],
+                body: tableData,
+                theme: 'grid',
+                styles: { fontSize: 8 },
+                headStyles: { fillColor: [0, 200, 83] } // Green header
+            });
+
+            // Footer
+            const finalY = doc.lastAutoTable.finalY + 10;
+            doc.setFontSize(8);
+            doc.text("Generated by Karta Pharmacy OS", 14, finalY);
+            doc.text(new Date().toLocaleString(), 14, finalY + 5);
+
+            doc.save(`${cust.name.replace(/\s+/g, '_')}_History.pdf`);
         }
 
         // --- Supplier Management ---
@@ -1146,6 +1339,9 @@
             body.innerHTML = '';
             let sub = 0;
             
+            // Check VAT Toggle
+            const applyVat = document.getElementById('posVatToggle').checked;
+            
             if(cart.length === 0) {
                 body.innerHTML = `<div class="flex h-full items-center justify-center text-gray-600 flex-col"><i class="fa-solid fa-basket-shopping text-4xl mb-2"></i><p>Cart is empty</p></div>`;
             } else {
@@ -1170,10 +1366,14 @@
                 });
             }
 
-            const tax = sub * (db.config.vatRate / 100);
+            const tax = applyVat ? sub * (db.config.vatRate / 100) : 0;
+            
             document.getElementById('posSubTotal').innerText = `${db.config.currency}${sub.toFixed(2)}`;
             document.getElementById('posVatRate').innerText = db.config.vatRate;
             document.getElementById('posTax').innerText = `${db.config.currency}${tax.toFixed(2)}`;
+            // If No VAT, strike through or dim the tax text
+            document.getElementById('posTax').className = applyVat ? "" : "line-through text-gray-600";
+            
             document.getElementById('posTotal').innerText = `${db.config.currency}${(sub + tax).toFixed(2)}`;
         }
 
@@ -1187,8 +1387,10 @@
             let custId = custIdMatch ? parseInt(custIdMatch[1]) : null;
             let custName = custInput.split('[')[0].trim() || 'Guest Customer';
 
+            // Recalculate based on current toggle state
+            const applyVat = document.getElementById('posVatToggle').checked;
             const sub = cart.reduce((a,c) => a + c.qty * c.retail, 0);
-            const tax = sub * (db.config.vatRate / 100);
+            const tax = applyVat ? sub * (db.config.vatRate / 100) : 0;
             const total = sub + tax;
 
             if(type === 'credit') {
@@ -1454,6 +1656,10 @@
 
         // --- Invoice Printing ---
         function printInvoice(txn) {
+            // SHOW INVOICE VIEW, HIDE REPORT VIEW
+            document.getElementById('invoice-print-view').classList.remove('hidden');
+            document.getElementById('report-print-view').classList.add('hidden');
+
             // Populate print area directly
             document.getElementById('invCompName').innerText = db.config.name;
             document.getElementById('invCompAddr').innerText = db.config.address;
@@ -1484,6 +1690,78 @@
             
             setTimeout(() => window.print(), 200);
         }
+
+        // --- Report Printing ---
+        function printReport() {
+            // HIDE INVOICE VIEW, SHOW REPORT VIEW
+            document.getElementById('invoice-print-view').classList.add('hidden');
+            const reportView = document.getElementById('report-print-view');
+            reportView.classList.remove('hidden');
+
+            // GENERATE REPORT HTML FOR PRINT
+            let html = `
+                <div style="text-align:center; margin-bottom: 20px;">
+                    <h1 style="font-size: 24px; font-weight: bold; margin:0;">${db.config.name}</h1>
+                    <p style="margin:2px 0;">${db.config.address} | ${db.config.phone}</p>
+                    <h2 style="font-size: 18px; margin-top: 10px; text-decoration: underline;">${currentReportTitle}</h2>
+                    <p style="font-size: 12px;">Generated on: ${new Date().toLocaleString()}</p>
+                </div>
+            `;
+
+            // Table Construction
+            html += `<table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                <thead>
+                    <tr style="background: #f0f0f0; border-bottom: 2px solid black;">`;
+            
+            // Derive headers from currentReportData logic (simplified based on known columns in currentReportData)
+            // A safer bet is to reuse the screen headers or define specific ones.
+            // Since `currentReportData` is just the raw transaction objects, we map manually based on Title context if needed,
+            // or we just output a generic table based on what we see in the screen.
+            // Better: Reconstruct table based on current report type stored in currentReportTitle context?
+            
+            if(currentReportTitle.includes("VAT")) {
+                html += `<th style="padding:5px; text-align:left;">Date</th>
+                         <th style="padding:5px; text-align:left;">Invoice #</th>
+                         <th style="padding:5px; text-align:right;">Taxable Amt</th>
+                         <th style="padding:5px; text-align:right;">VAT</th>
+                         <th style="padding:5px; text-align:right;">Total</th></tr></thead><tbody>`;
+                currentReportData.forEach(t => {
+                   html += `<tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding:5px;">${new Date(t.date).toLocaleDateString()}</td>
+                        <td style="padding:5px;">#${t.id.toString().slice(-6)}</td>
+                        <td style="padding:5px; text-align:right;">${db.config.currency}${(t.sub||0).toFixed(2)}</td>
+                        <td style="padding:5px; text-align:right;">${db.config.currency}${(t.tax||0).toFixed(2)}</td>
+                        <td style="padding:5px; text-align:right;">${db.config.currency}${t.total.toFixed(2)}</td>
+                   </tr>`; 
+                });
+            } else {
+                // Generic (Daily, Sales, etc)
+                html += `<th style="padding:5px; text-align:left;">Date</th>
+                         <th style="padding:5px; text-align:left;">Type</th>
+                         <th style="padding:5px; text-align:left;">Entity/Ref</th>
+                         <th style="padding:5px; text-align:right;">Amount</th></tr></thead><tbody>`;
+                currentReportData.forEach(t => {
+                   html += `<tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding:5px;">${new Date(t.date).toLocaleDateString()}</td>
+                        <td style="padding:5px; text-transform:uppercase;">${t.type}</td>
+                        <td style="padding:5px;">${t.entityName || '-'}</td>
+                        <td style="padding:5px; text-align:right;">${db.config.currency}${t.total.toFixed(2)}</td>
+                   </tr>`; 
+                });
+            }
+            
+            html += `</tbody></table>`;
+            
+            // Add Summary Footer
+            const total = currentReportData.reduce((a,c) => a + c.total, 0);
+            html += `<div style="text-align:right; margin-top: 10px; font-weight:bold; border-top: 2px solid black; padding-top: 5px;">
+                Total: ${db.config.currency}${total.toFixed(2)}
+            </div>`;
+
+            reportView.innerHTML = html;
+            setTimeout(() => window.print(), 200);
+        }
+
 
         // --- Settings ---
         document.getElementById('settingsForm').onsubmit = e => {
@@ -1556,7 +1834,9 @@
             if(fromDate) filteredTxns = filteredTxns.filter(t => t.date.substring(0,10) >= fromDate);
             if(toDate) filteredTxns = filteredTxns.filter(t => t.date.substring(0,10) <= toDate);
 
-            document.getElementById('reportTitle').innerText = type.toUpperCase() + " REPORT";
+            // Set Title
+            currentReportTitle = type.toUpperCase() + " REPORT";
+            document.getElementById('reportTitle').innerText = currentReportTitle;
 
             // Helper to create card
             const createCard = (title, value, color='white') => {
@@ -1564,12 +1844,7 @@
             };
 
             if(type === 'trading') {
-                // Trading Account Logic - Skipped for brevity in CSV export fix scope, assuming handled
-                // ... (previous trading logic remains same)
-                // BUT for export to work, we need to populate currentReportData
-                // Since trading is summary based, CSV export might be tricky or just empty for now
                 currentReportData = []; 
-                // Trading logic...
                 const sales = filteredTxns.filter(t => t.type === 'sale').reduce((a,c)=>a+c.total, 0);
                 const purchases = filteredTxns.filter(t => t.type === 'purchase').reduce((a,c)=>a+c.total, 0);
                 let cogs = 0;
@@ -1588,8 +1863,7 @@
             }
 
             if(type === 'balance') {
-                // Balance logic...
-                currentReportData = []; // Balance sheet is snapshot, not list
+                currentReportData = []; 
                 const stockVal = db.products.reduce((a,c) => a + (c.stock * c.cost), 0);
                 const receivables = db.customers.reduce((a,c) => a + c.balance, 0);
                 const payables = db.suppliers.reduce((a,c) => a + c.balance, 0);
@@ -1611,9 +1885,38 @@
                 return;
             }
 
+            // --- VAT REPORT LOGIC ---
+            if(type === 'vat') {
+                const sales = filteredTxns.filter(t => t.type === 'sale');
+                const totalTaxable = sales.reduce((a,c) => a + (c.sub || 0), 0);
+                const totalVat = sales.reduce((a,c) => a + (c.tax || 0), 0);
+                const totalWithVat = sales.reduce((a,c) => a + c.total, 0);
+
+                cards.innerHTML += createCard('Taxable Sales', totalTaxable, 'white');
+                cards.innerHTML += createCard('Total VAT Collected', totalVat, 'karta-primary');
+                cards.innerHTML += createCard('Grand Total', totalWithVat, 'green-400');
+
+                thead.innerHTML = `<tr><th class="p-3">Date</th><th class="p-3">Invoice #</th><th class="p-3 text-right">Taxable Amt</th><th class="p-3 text-right">VAT</th><th class="p-3 text-right">Total</th></tr>`;
+                
+                sales.forEach(t => {
+                    const tr = document.createElement('tr');
+                    tr.className = "border-b border-gray-800 text-gray-300";
+                    tr.innerHTML = `
+                        <td class="p-3">${new Date(t.date).toLocaleDateString()}</td>
+                        <td class="p-3 font-mono text-xs">#${t.id.toString().slice(-6)}</td>
+                        <td class="p-3 text-right">${db.config.currency}${(t.sub||0).toFixed(2)}</td>
+                        <td class="p-3 text-right text-karta-primary font-bold">${db.config.currency}${(t.tax||0).toFixed(2)}</td>
+                        <td class="p-3 text-right">${db.config.currency}${t.total.toFixed(2)}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+                currentReportData = sales;
+                return;
+            }
+
             // Standard Transaction Reports (Daily, Sales, Purchase, Expense)
             
-            // FIXED: Map 'sales' string to 'sale' database type
+            // Map 'sales' string to 'sale' database type
             let dbType = type;
             if(type === 'sales') dbType = 'sale'; 
             
