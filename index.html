@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Karta - Pharmacy OS</title>
+    <title>Karta - Pharmacy OS (Secure Multi-User)</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -113,10 +113,51 @@
         }
     </style>
 </head>
-<body class="h-screen overflow-hidden text-sm">
+<body class="h-screen overflow-hidden text-sm relative">
+
+    <!-- AUTH LOGIN SCREEN -->
+    <div id="auth-screen" class="absolute inset-0 z-50 bg-karta-bg flex items-center justify-center">
+        <div class="w-full max-w-md bg-karta-surface border border-karta-border p-8 rounded-lg shadow-2xl">
+            <div class="text-center mb-8">
+                <div class="w-16 h-16 rounded bg-karta-primary flex items-center justify-center text-black font-bold text-3xl mx-auto mb-4">
+                    <i class="fa-solid fa-leaf"></i>
+                </div>
+                <h1 class="text-2xl font-bold text-white">Welcome to KARTA</h1>
+                <p class="text-karta-muted mt-2">Secure Pharmacy OS</p>
+                <div class="mt-4 p-3 bg-blue-900/20 border border-blue-800 rounded text-xs text-blue-300 text-left">
+                    <i class="fa-solid fa-shield-halved mr-2"></i> <strong>Private Database:</strong> Each user has a completely separate database. Data is never shared between accounts.
+                </div>
+            </div>
+            
+            <form id="authForm" class="space-y-4">
+                <div>
+                    <label class="text-xs text-gray-400">Email Address</label>
+                    <input type="email" id="authEmail" class="input-field mt-1" placeholder="admin@karta.com" required>
+                </div>
+                <div>
+                    <label class="text-xs text-gray-400">Password</label>
+                    <input type="password" id="authPass" class="input-field mt-1" placeholder="••••••••" required>
+                </div>
+                
+                <div id="authError" class="text-red-500 text-xs hidden"></div>
+
+                <div class="pt-4 flex flex-col gap-3">
+                    <button type="submit" id="btnSignIn" class="w-full bg-karta-primary hover:bg-karta-primaryDark text-black font-bold py-3 rounded transition">
+                        <i class="fa-solid fa-lock mr-2"></i> Access My Database
+                    </button>
+                    <button type="button" id="btnSignUp" class="w-full bg-transparent border border-karta-border hover:border-gray-500 text-white py-2 rounded transition">
+                        Create New Private Database
+                    </button>
+                </div>
+            </form>
+            <div class="mt-6 text-center text-xs text-gray-500">
+                Secured by Firebase
+            </div>
+        </div>
+    </div>
 
     <!-- Wrapper for Main App (to hide during print) -->
-    <div id="app-root" class="flex h-full w-full">
+    <div id="app-root" class="flex h-full w-full hidden opacity-0 transition-opacity duration-500">
 
         <!-- Sidebar -->
         <aside class="w-64 bg-karta-surface border-r border-karta-border flex flex-col z-20">
@@ -124,9 +165,9 @@
                 <div class="w-10 h-10 rounded bg-karta-primary flex items-center justify-center text-black font-bold text-xl">
                     <i class="fa-solid fa-leaf"></i>
                 </div>
-                <div>
+                <div class="overflow-hidden">
                     <h1 class="text-xl font-bold tracking-tight text-white">KARTA</h1>
-                    <p class="text-xs text-karta-primary">Pharmacy OS</p>
+                    <p class="text-xs text-karta-primary truncate" id="userEmailDisplay">User</p>
                 </div>
             </div>
 
@@ -162,9 +203,15 @@
                 </button>
             </nav>
 
-            <div class="p-4 border-t border-karta-border">
-                <button onclick="nav('settings')" class="flex items-center gap-2 text-gray-400 hover:text-white transition w-full">
+            <div class="p-4 border-t border-karta-border space-y-2">
+                <div class="text-xs text-center text-gray-500 mb-2">
+                    <span id="syncStatusIndicator" class="text-green-500"><i class="fa-solid fa-circle"></i> Private Database Active</span>
+                </div>
+                <button onclick="nav('settings')" class="flex items-center gap-2 text-gray-400 hover:text-white transition w-full p-2 hover:bg-white/5 rounded">
                     <i class="fa-solid fa-gear"></i> Settings
+                </button>
+                <button onclick="handleLogout()" class="flex items-center gap-2 text-red-500 hover:text-red-400 transition w-full p-2 hover:bg-white/5 rounded">
+                    <i class="fa-solid fa-sign-out-alt"></i> Logout
                 </button>
             </div>
         </aside>
@@ -180,8 +227,8 @@
                         <div class="text-sm font-bold text-white" id="clock">12:00 PM</div>
                         <div class="text-xs text-karta-muted" id="date">Jan 01, 2025</div>
                     </div>
-                    <div class="h-8 w-8 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center text-karta-primary">
-                        <i class="fa-solid fa-user"></i>
+                    <div class="h-8 w-8 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center text-karta-primary" title="User">
+                        <i class="fa-solid fa-user-shield"></i>
                     </div>
                 </div>
             </header>
@@ -533,16 +580,25 @@
                         </form>
                         
                         <div class="mt-10 pt-6 border-t border-gray-700 space-y-4">
-                            <h4 class="font-bold text-white">Database Management</h4>
+                            <h4 class="font-bold text-white">Data Management</h4>
+                            
+                            <!-- FIREBASE CLOUD SYNC -->
+                            <div class="p-4 bg-white/5 rounded border border-gray-700 mb-4">
+                                <h5 class="text-karta-primary font-bold mb-2"><i class="fa-solid fa-cloud"></i> Private Database</h5>
+                                <p class="text-xs text-gray-400 mb-3">You are connected to your private isolated database. Data is synced in real-time only to your account.</p>
+                                <div class="text-xs text-green-500"><i class="fa-solid fa-check-circle"></i> Status: Secured & Synced</div>
+                                <div class="mt-2 text-xs text-gray-500">Database ID: <span id="dbIdDisplay" class="font-mono text-white">...</span></div>
+                            </div>
+
                             <div class="flex gap-4">
-                                <button onclick="exportDB()" class="bg-blue-600 text-white px-4 py-2 rounded text-xs hover:bg-blue-500"><i class="fa-solid fa-download"></i> Backup (Export)</button>
+                                <button onclick="exportDB()" class="bg-gray-700 text-white px-4 py-2 rounded text-xs hover:bg-gray-600"><i class="fa-solid fa-download"></i> Backup (Export File)</button>
                                 <label class="bg-gray-700 text-white px-4 py-2 rounded text-xs hover:bg-gray-600 cursor-pointer">
-                                    <i class="fa-solid fa-upload"></i> Restore (Import)
+                                    <i class="fa-solid fa-upload"></i> Restore (Import File)
                                     <input type="file" id="importFile" class="hidden" onchange="importDB(this)">
                                 </label>
                             </div>
                             <div class="mt-4">
-                                <button onclick="resetData()" class="text-red-500 text-xs hover:text-red-400 underline">Danger: Reset System Data</button>
+                                <button onclick="resetData()" class="text-red-500 text-xs hover:text-red-400 underline">Danger: Wipe My Data</button>
                             </div>
                         </div>
                     </div>
@@ -921,10 +977,40 @@
         </div>
     </div>
 
-    <script>
-        /** KARTA CORE LOGIC **/
+    <script type="module">
+        // Import Firebase SDKs
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
+        // IMPORT ONVALUE FOR REALTIME UPDATES
+        import { getDatabase, ref, set, get, child, onValue } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-database.js";
+
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAR_ZXBaDY19TwNpK-grHbrQM-E1nadDp8",
+            authDomain: "account-9482d.firebaseapp.com",
+            databaseURL: "https://account-9482d-default-rtdb.firebaseio.com",
+            projectId: "account-9482d",
+            storageBucket: "account-9482d.firebasestorage.app",
+            messagingSenderId: "742088303662",
+            appId: "1:742088303662:web:c23726104923389f156bbf",
+            measurementId: "G-K165K36HRF"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const dbRealtime = getDatabase(app);
         
-        const DB_KEY = 'karta_v2_db';
+        // --- Firebase Auth & Sync Logic ---
+        const authScreen = document.getElementById('auth-screen');
+        const appRoot = document.getElementById('app-root');
+        const authError = document.getElementById('authError');
+        const syncStatusIndicator = document.getElementById('syncStatusIndicator');
+        let currentUser = null;
+        let dbUnsubscribe = null; // Store listener to detach on logout
+        let DB_KEY = ''; // DYNAMIC KEY: Will be set to 'karta_db_UID'
+
+        /** CORE INITIAL STATE - No data loaded yet **/
         const APP_STATE = {
             config: {
                 name: 'Karta Pharmacy', address: 'Kathmandu, Nepal', phone: '+977-9800000000',
@@ -935,64 +1021,156 @@
             suppliers: [],
             transactions: []
         };
-
-        // Load State
-        let db = JSON.parse(localStorage.getItem(DB_KEY)) || APP_STATE;
+        
+        // Start with empty state
+        let db = JSON.parse(JSON.stringify(APP_STATE));
         let cart = [];
         let editTxnId = null;
         let currentReportData = [];
-        let currentReportTitle = ""; // Track for printing
+        let currentReportTitle = ""; 
         let activeCustomerReportId = null; 
         let activeSupplierReportId = null;
-        
-        // Settings Temp Var
         let tempLogoBase64 = null;
 
+        // AUTH & ISOLATION LOGIC
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                // User is signed in
+                currentUser = user;
+                
+                // 1. GENERATE UNIQUE KEY FOR THIS USER
+                // This prevents Ajaya from seeing Sanjok's local data
+                DB_KEY = `karta_db_${user.uid}`;
+                
+                // 2. LOAD LOCAL DATA SPECIFIC TO THIS USER
+                const localData = localStorage.getItem(DB_KEY);
+                if (localData) {
+                    db = JSON.parse(localData);
+                } else {
+                    // New user locally? Start fresh
+                    db = JSON.parse(JSON.stringify(APP_STATE));
+                }
+                
+                refreshUI(); // Show data immediately
+                
+                authScreen.classList.add('hidden');
+                appRoot.classList.remove('hidden');
+                appRoot.classList.remove('opacity-0');
+                document.getElementById('userEmailDisplay').innerText = user.email;
+                document.getElementById('dbIdDisplay').innerText = user.uid.slice(0,8) + "...";
+                
+                console.log("Logged in as: ", user.email);
+                
+                // 3. START SECURE CLOUD SYNC
+                // Path is securely isolated to users/{uid}/data
+                const userRef = ref(dbRealtime, 'users/' + user.uid + '/data');
+                
+                // Set up real-time listener
+                dbUnsubscribe = onValue(userRef, (snapshot) => {
+                    const cloudData = snapshot.val();
+                    if (cloudData) {
+                        // Data exists in cloud, update local state
+                        db = cloudData;
+                        localStorage.setItem(DB_KEY, JSON.stringify(db)); // Update Isolated Local Storage
+                        refreshUI();
+                        console.log("Data synced from Cloud");
+                        updateSyncStatus("Synced", "text-green-500");
+                    } else {
+                        // No data in cloud (New User), upload current local default
+                        updateSyncStatus("Initializing Private DB...", "text-yellow-500");
+                        set(userRef, db);
+                    }
+                });
+
+            } else {
+                // User is signed out
+                currentUser = null;
+                DB_KEY = ''; // Clear key
+                if(dbUnsubscribe) dbUnsubscribe(); // Stop listening
+                
+                // WIPE MEMORY FOR SECURITY
+                db = JSON.parse(JSON.stringify(APP_STATE));
+                
+                appRoot.classList.add('hidden');
+                appRoot.classList.add('opacity-0');
+                authScreen.classList.remove('hidden');
+            }
+        });
+        
+        function updateSyncStatus(text, colorClass) {
+            syncStatusIndicator.innerHTML = `<i class="fa-solid fa-circle text-[8px]"></i> ${text}`;
+            syncStatusIndicator.className = colorClass;
+        }
+
+        // Sign In
+        document.getElementById('authForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = document.getElementById('authEmail').value;
+            const pass = document.getElementById('authPass').value;
+            authError.classList.add('hidden');
+
+            signInWithEmailAndPassword(auth, email, pass)
+                .then((userCredential) => {
+                    // Signed in via onAuthStateChanged
+                })
+                .catch((error) => {
+                    authError.innerText = error.message;
+                    authError.classList.remove('hidden');
+                });
+        });
+
+        // Sign Up
+        document.getElementById('btnSignUp').addEventListener('click', () => {
+            const email = document.getElementById('authEmail').value;
+            const pass = document.getElementById('authPass').value;
+            if(!email || !pass) return alert("Enter email and password to create account");
+
+            createUserWithEmailAndPassword(auth, email, pass)
+                .then((userCredential) => {
+                    alert("Account Created! You are now logged in.");
+                })
+                .catch((error) => {
+                    authError.innerText = error.message;
+                    authError.classList.remove('hidden');
+                });
+        });
+
+        // Global Logout
+        window.handleLogout = () => {
+            if(confirm("Are you sure you want to logout?")) {
+                signOut(auth).then(() => {
+                    location.reload(); // Reload to clear memory completely
+                }).catch((error) => {
+                    alert("Error signing out");
+                });
+            }
+        };
+
+
+        /** KARTA CORE LOGIC **/
+
+        // MODIFIED AUTO-SAVE FUNCTION
         function saveDB() {
+            if(!currentUser || !DB_KEY) return;
+            
+            // 1. Save Locally to ISOLATED Key
             localStorage.setItem(DB_KEY, JSON.stringify(db));
+            
+            // 2. Auto-Save to Cloud (If Logged In)
+            updateSyncStatus("Saving...", "text-yellow-500");
+            const userRef = ref(dbRealtime, 'users/' + currentUser.uid + '/data');
+            set(userRef, db)
+                .then(() => updateSyncStatus("Synced", "text-green-500"))
+                .catch((err) => {
+                    console.error(err);
+                    updateSyncStatus("Sync Error", "text-red-500");
+                });
+            
             refreshUI();
         }
 
-        function resetData() {
-            if(confirm("DANGER: This will wipe all data permanently!")) {
-                localStorage.removeItem(DB_KEY);
-                location.reload();
-            }
-        }
-
-        // --- Database Backup/Restore ---
-        function exportDB() {
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db));
-            const downloadAnchorNode = document.createElement('a');
-            downloadAnchorNode.setAttribute("href", dataStr);
-            downloadAnchorNode.setAttribute("download", "karta_backup_" + new Date().toISOString().split('T')[0] + ".json");
-            document.body.appendChild(downloadAnchorNode);
-            downloadAnchorNode.click();
-            downloadAnchorNode.remove();
-        }
-
-        function importDB(input) {
-            const file = input.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const imported = JSON.parse(e.target.result);
-                    if(confirm("This will overwrite current data with the backup. Continue?")) {
-                        db = imported;
-                        saveDB();
-                        alert("Database Restored Successfully!");
-                        location.reload();
-                    }
-                } catch(err) {
-                    alert("Invalid Backup File");
-                }
-            };
-            reader.readAsText(file);
-        }
-
-        // --- Navigation ---
-        function nav(page) {
+        // Attach global functions to window so HTML onclick works
+        window.nav = function(page) {
             document.querySelectorAll('main section').forEach(el => el.classList.add('hidden'));
             document.getElementById(page).classList.remove('hidden');
             document.getElementById('pageTitle').innerText = page.charAt(0).toUpperCase() + page.slice(1);
@@ -1004,13 +1182,13 @@
             if(page === 'reports') runReports('daily');
         }
 
-        function openModal(id) {
+        window.openModal = function(id) {
             document.getElementById('modalBackdrop').classList.remove('hidden');
             document.getElementById(id).classList.remove('hidden');
             if(id === 'purchModal') loadPurchSelects();
         }
 
-        function closeModal() {
+        window.closeModal = function() {
             document.getElementById('modalBackdrop').classList.add('hidden');
             document.querySelectorAll('.modal-content').forEach(el => el.classList.add('hidden'));
             document.querySelectorAll('form').forEach(f => f.reset());
@@ -1018,11 +1196,53 @@
             activeCustomerReportId = null;
             activeSupplierReportId = null;
         }
-
-        function openPaymentModal(custId, custName) {
+        
+        window.openPaymentModal = function(custId, custName) {
             document.getElementById('payCustId').value = custId;
             document.getElementById('payCustName').innerText = "Settling due for: " + custName;
-            openModal('payModal');
+            window.openModal('payModal');
+        }
+        
+        window.resetData = function() {
+            if(confirm("DANGER: This will wipe all data permanently!")) {
+                // Remove isolated key
+                if(DB_KEY) localStorage.removeItem(DB_KEY);
+                
+                // Clear cloud if connected
+                if(currentUser) {
+                    set(ref(dbRealtime, 'users/' + currentUser.uid + '/data'), APP_STATE);
+                }
+                location.reload();
+            }
+        }
+
+        window.exportDB = function() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", "karta_backup_" + (currentUser ? currentUser.uid.slice(0,5) : 'local') + ".json");
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        }
+
+        window.importDB = function(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if(confirm("This will overwrite current data with the backup. Continue?")) {
+                        db = imported;
+                        saveDB(); // Triggers cloud save
+                        alert("Database Restored Successfully!");
+                    }
+                } catch(err) {
+                    alert("Invalid Backup File");
+                }
+            };
+            reader.readAsText(file);
         }
 
         // --- Product Management ---
@@ -1041,7 +1261,7 @@
             };
             db.products.push(p);
             saveDB();
-            closeModal();
+            window.closeModal();
         };
 
         function renderProducts() {
@@ -1067,7 +1287,7 @@
                 tbody.appendChild(tr);
             });
         }
-        function delProd(id) { if(confirm("Delete Product?")) { db.products = db.products.filter(p=>p.id!==id); saveDB(); } }
+        window.delProd = function(id) { if(confirm("Delete Product?")) { db.products = db.products.filter(p=>p.id!==id); saveDB(); } }
 
         // --- Customer Management ---
         document.getElementById('custForm').onsubmit = e => {
@@ -1082,7 +1302,7 @@
                 balance: 0
             });
             saveDB();
-            closeModal();
+            window.closeModal();
         };
 
         // Payment Settlement
@@ -1105,7 +1325,7 @@
                     tax: 0
                 });
                 saveDB();
-                closeModal();
+                window.closeModal();
                 alert("Payment Recorded");
             }
         };
@@ -1154,7 +1374,7 @@
         }
 
         // --- NEW: Customer History & PDF Logic ---
-        function viewCustomerHistory(id) {
+        window.viewCustomerHistory = function(id) {
             activeCustomerReportId = id;
             const cust = db.customers.find(c => c.id === id);
             if(!cust) return;
@@ -1208,10 +1428,10 @@
                 });
             }
 
-            openModal('custHistoryModal');
+            window.openModal('custHistoryModal');
         }
 
-        function downloadCustomerPDF() {
+        window.downloadCustomerPDF = function() {
             if(!activeCustomerReportId) return;
             const cust = db.customers.find(c => c.id === activeCustomerReportId);
             const txns = db.transactions.filter(t => t.entityId === activeCustomerReportId).sort((a,b) => new Date(b.date) - new Date(a.date));
@@ -1288,11 +1508,11 @@
                 balance: 0
             });
             saveDB();
-            closeModal();
+            window.closeModal();
         };
         
         // NEW: Supplier History & Logic
-        function viewSupplierHistory(id) {
+        window.viewSupplierHistory = function(id) {
             activeSupplierReportId = id;
             const sup = db.suppliers.find(s => s.id === id);
             if(!sup) return;
@@ -1342,14 +1562,14 @@
                     tbody.appendChild(tr);
                 });
             }
-            openModal('supHistoryModal');
+            window.openModal('supHistoryModal');
         }
 
         // NEW: Open Supplier Pay Modal
-        function openSupPayModal(id, name) {
+        window.openSupPayModal = function(id, name) {
             document.getElementById('spSupId').value = id;
             document.getElementById('spSupName').innerText = "Recording payment to: " + name;
-            openModal('supPayModal');
+            window.openModal('supPayModal');
         }
 
         // NEW: Submit Supplier Payment
@@ -1372,13 +1592,13 @@
                     tax: 0
                 });
                 saveDB();
-                closeModal();
+                window.closeModal();
                 alert("Payment Recorded");
             }
         };
 
         // NEW: Download Supplier PDF
-        function downloadSupplierPDF() {
+        window.downloadSupplierPDF = function() {
             if(!activeSupplierReportId) return;
             const sup = db.suppliers.find(s => s.id === activeSupplierReportId);
             const txns = db.transactions.filter(t => t.entityId === activeSupplierReportId && (t.type === 'purchase' || t.type === 'payment_out'))
@@ -1456,7 +1676,7 @@
                 tbody.appendChild(tr);
             });
         }
-        function delSup(id) { if(confirm("Delete Supplier?")) { db.suppliers = db.suppliers.filter(s=>s.id!==id); saveDB(); } }
+        window.delSup = function(id) { if(confirm("Delete Supplier?")) { db.suppliers = db.suppliers.filter(s=>s.id!==id); saveDB(); } }
 
         // --- Transactions (Purchase & Expense) ---
         function loadPurchSelects() {
@@ -1494,7 +1714,7 @@
                     ref: document.getElementById('poRef').value
                 });
                 saveDB();
-                closeModal();
+                window.closeModal();
             }
         };
 
@@ -1509,7 +1729,7 @@
                 total: parseFloat(document.getElementById('expAmt').value)
             });
             saveDB();
-            closeModal();
+            window.closeModal();
         };
 
         // --- POS Logic ---
@@ -1522,6 +1742,7 @@
             .forEach(p => {
                 const el = document.createElement('div');
                 el.className = "bg-karta-surface border border-karta-border p-3 rounded cursor-pointer hover:border-karta-primary transition";
+                // FIX: Use closure or string ID
                 el.onclick = () => addToCart(p);
                 el.innerHTML = `
                     <div class="flex justify-between mb-1">
@@ -1559,7 +1780,7 @@
             qtyInput.value = 1; 
         }
 
-        function updateCartQty(idx, change) {
+        window.updateCartQty = function(idx, change) {
             const item = cart[idx];
             const product = db.products.find(p => p.id === item.id);
             const newQty = item.qty + change;
@@ -1572,7 +1793,7 @@
             }
         }
 
-        function renderCart() {
+        window.renderCart = function() {
             const body = document.getElementById('posCartBody');
             body.innerHTML = '';
             let sub = 0;
@@ -1615,9 +1836,9 @@
             document.getElementById('posTotal').innerText = `${db.config.currency}${(sub + tax).toFixed(2)}`;
         }
 
-        function clearCart() { cart = []; renderCart(); }
+        window.clearCart = function() { cart = []; renderCart(); }
 
-        function checkout(type) {
+        window.checkout = function(type) {
             if(cart.length === 0) return alert("Empty Cart");
             
             const custInput = document.getElementById('posCustomerInput').value;
@@ -1665,7 +1886,7 @@
         }
 
         // --- Invoice List Logic ---
-        function loadInvoices() {
+        window.loadInvoices = function() {
             const tbody = document.getElementById('invoiceListBody');
             tbody.innerHTML = '';
             const search = document.getElementById('invoiceSearch').value.toLowerCase();
@@ -1682,20 +1903,25 @@
                         <td class="p-3 text-center"><span class="px-2 py-1 rounded text-xs ${t.payType==='credit' ? 'bg-yellow-900 text-yellow-300' : 'bg-green-900 text-green-300'} uppercase">${t.payType || 'cash'}</span></td>
                         <td class="p-3 text-center">
                             <button onclick="editInvoice(${t.id})" class="text-gray-400 hover:text-white mx-1"><i class="fa-solid fa-pen"></i></button>
-                            <button onclick='printInvoice(${JSON.stringify(t)})' class="text-blue-400 hover:text-blue-300 mx-1"><i class="fa-solid fa-print"></i></button>
+                            <button onclick='printInvoiceStr(${JSON.stringify(t)})' class="text-blue-400 hover:text-blue-300 mx-1"><i class="fa-solid fa-print"></i></button>
                         </td>
                     `;
                     tbody.appendChild(tr);
                 }
             });
         }
+        
+        // Helper to pass object in HTML string onclick
+        window.printInvoiceStr = function(txn) {
+            printInvoice(txn);
+        }
 
-        function editInvoice(id) {
+        window.editInvoice = function(id) {
             editTxnId = id;
             const txn = db.transactions.find(t => t.id === id);
             if(!txn) return;
 
-            openModal('invEditModal');
+            window.openModal('invEditModal');
             document.getElementById('editInvId').innerText = id;
             
             const custSel = document.getElementById('editInvCust');
@@ -1724,11 +1950,11 @@
             return div;
         }
 
-        function addEditItem() {
+        window.addEditItem = function() {
             document.getElementById('editInvItems').appendChild(createEditItemRow());
         }
 
-        function saveInvoiceEdit() {
+        window.saveInvoiceEdit = function() {
             if(!editTxnId) return;
             // REVERSE OLD TXN
             const oldTxn = db.transactions.find(t => t.id === editTxnId);
@@ -1787,12 +2013,12 @@
             oldTxn.entityName = custName;
 
             saveDB();
-            closeModal();
+            window.closeModal();
             loadInvoices(); // Refresh list
             alert("Invoice Updated");
         }
 
-        function deleteInvoice() {
+        window.deleteInvoice = function() {
             if(!editTxnId || !confirm("Delete this invoice permanently? This will reverse stock changes.")) return;
             
             const oldTxn = db.transactions.find(t => t.id === editTxnId);
@@ -1809,7 +2035,7 @@
 
             db.transactions = db.transactions.filter(t => t.id !== editTxnId);
             saveDB();
-            closeModal();
+            window.closeModal();
             loadInvoices();
         }
 
@@ -1939,7 +2165,7 @@
         }
 
         // --- Report Printing ---
-        function printReport() {
+        window.printReport = function() {
             // HIDE INVOICE VIEW, SHOW REPORT VIEW
             document.getElementById('invoice-print-view').classList.add('hidden');
             const reportView = document.getElementById('report-print-view');
@@ -2048,7 +2274,7 @@
             }
         });
 
-        function clearLogo() {
+        window.clearLogo = function() {
             tempLogoBase64 = ''; // Empty string triggers removal
             document.getElementById('confLogoInput').value = '';
             document.getElementById('confLogoPreview').src = '';
@@ -2095,7 +2321,7 @@
         }
 
         // --- Reports Export Logic ---
-        function exportReportCSV() {
+        window.exportReportCSV = function() {
             if(!currentReportData || !currentReportData.length) {
                 alert("No report data to export. Please run a report first.");
                 return;
@@ -2129,7 +2355,7 @@
         }
 
         // --- Reports ---
-        function runReports(type) {
+        window.runReports = function(type) {
             const tbody = document.getElementById('repTable');
             const thead = document.getElementById('repHead');
             const cards = document.getElementById('reportCards');
@@ -2263,7 +2489,7 @@
                     // Action Button Logic
                     let actionBtn = '';
                     if(t.type === 'sale') {
-                        actionBtn = `<button onclick='printInvoice(${JSON.stringify(t)})' class="text-gray-400 hover:text-white" title="Print/Export Invoice"><i class="fa-solid fa-print"></i></button>`;
+                        actionBtn = `<button onclick='printInvoiceStr(${JSON.stringify(t)})' class="text-gray-400 hover:text-white" title="Print/Export Invoice"><i class="fa-solid fa-print"></i></button>`;
                     }
 
                     tr.innerHTML = `
