@@ -1032,6 +1032,24 @@
         let activeSupplierReportId = null;
         let tempLogoBase64 = null;
 
+        /**
+         * CRITICAL FIX: Ensure DB integrity
+         * Firebase Realtime Database deletes keys if they are empty arrays (e.g. products: []).
+         * When data comes back from cloud, if products is missing, the app crashes.
+         * This function forces empty arrays to exist if they are missing.
+         */
+        function ensureDbStructure(data) {
+            if (!data) return JSON.parse(JSON.stringify(APP_STATE));
+            return {
+                config: data.config || APP_STATE.config,
+                // If Array is missing (deleted by Firebase optimization), force empty array []
+                products: Array.isArray(data.products) ? data.products : [],
+                customers: Array.isArray(data.customers) ? data.customers : [],
+                suppliers: Array.isArray(data.suppliers) ? data.suppliers : [],
+                transactions: Array.isArray(data.transactions) ? data.transactions : []
+            };
+        }
+
         // AUTH & ISOLATION LOGIC
         onAuthStateChanged(auth, (user) => {
             if (user) {
@@ -1039,15 +1057,14 @@
                 currentUser = user;
                 
                 // 1. GENERATE UNIQUE KEY FOR THIS USER
-                // This prevents Ajaya from seeing Sanjok's local data
                 DB_KEY = `karta_db_${user.uid}`;
                 
                 // 2. LOAD LOCAL DATA SPECIFIC TO THIS USER
                 const localData = localStorage.getItem(DB_KEY);
                 if (localData) {
-                    db = JSON.parse(localData);
+                    // FIX: Run through sanitizer
+                    db = ensureDbStructure(JSON.parse(localData));
                 } else {
-                    // New user locally? Start fresh
                     db = JSON.parse(JSON.stringify(APP_STATE));
                 }
                 
@@ -1070,7 +1087,9 @@
                     const cloudData = snapshot.val();
                     if (cloudData) {
                         // Data exists in cloud, update local state
-                        db = cloudData;
+                        // FIX: Run through sanitizer to prevent "undefined" arrays crash
+                        db = ensureDbStructure(cloudData);
+                        
                         localStorage.setItem(DB_KEY, JSON.stringify(db)); // Update Isolated Local Storage
                         refreshUI();
                         console.log("Data synced from Cloud");
@@ -1234,7 +1253,8 @@
                 try {
                     const imported = JSON.parse(e.target.result);
                     if(confirm("This will overwrite current data with the backup. Continue?")) {
-                        db = imported;
+                        // FIX: Sanitize import data too
+                        db = ensureDbStructure(imported);
                         saveDB(); // Triggers cloud save
                         alert("Database Restored Successfully!");
                     }
@@ -1269,6 +1289,9 @@
             tbody.innerHTML = '';
             const search = document.getElementById('invSearch').value.toLowerCase();
             
+            // Safety Check: ensure db.products exists
+            if (!db.products) db.products = [];
+
             db.products.filter(p => p.name.toLowerCase().includes(search) || p.sku.toLowerCase().includes(search))
             .forEach(p => {
                 const tr = document.createElement('tr');
@@ -1335,12 +1358,14 @@
             grid.innerHTML = '';
             const search = document.getElementById('custSearch').value.toLowerCase();
             
+            if (!db.customers) db.customers = [];
+
             db.customers.filter(c => c.name.toLowerCase().includes(search) || (c.address && c.address.toLowerCase().includes(search))).forEach(c => {
                 const el = document.createElement('div');
                 el.className = "bg-karta-surface border border-karta-border p-4 rounded-lg hover:border-karta-primary transition group flex flex-col h-full";
                 
                 // Calculate quick stats for the card
-                const txns = db.transactions.filter(t => t.entityId === c.id);
+                const txns = (db.transactions || []).filter(t => t.entityId === c.id);
                 const totalSpent = txns.filter(t => t.type === 'sale').reduce((a,x) => a + x.total, 0);
 
                 el.innerHTML = `
@@ -1658,6 +1683,8 @@
             tbody.innerHTML = '';
             const search = document.getElementById('supSearch').value.toLowerCase();
             
+            if (!db.suppliers) db.suppliers = [];
+
             db.suppliers.filter(s => s.name.toLowerCase().includes(search)).forEach(s => {
                 const tr = document.createElement('tr');
                 tr.className = "hover:bg-white/5";
@@ -1738,6 +1765,8 @@
             grid.innerHTML = '';
             const search = document.getElementById('posSearch').value.toLowerCase();
             
+            if (!db.products) db.products = [];
+
             db.products.filter(p => p.stock > 0 && (p.name.toLowerCase().includes(search) || p.sku.includes(search)))
             .forEach(p => {
                 const el = document.createElement('div');
@@ -2044,6 +2073,11 @@
         let catChart;
 
         function loadDashboard() {
+            // FIX: Ensure arrays exist
+            if(!db.transactions) db.transactions = [];
+            if(!db.products) db.products = [];
+            if(!db.customers) db.customers = [];
+
             const sales = db.transactions.filter(t => t.type === 'sale');
             const revenue = sales.reduce((a,c) => a + c.total, 0);
             const stockVal = db.products.reduce((a,c) => a + (c.stock * c.cost), 0);
@@ -2365,6 +2399,9 @@
             const toDate = document.getElementById('repTo').value;
 
             // Filter transactions by date
+            // FIX: Ensure transactions exists
+            if(!db.transactions) db.transactions = [];
+            
             let filteredTxns = db.transactions.slice().reverse();
             if(fromDate) filteredTxns = filteredTxns.filter(t => t.date.substring(0,10) >= fromDate);
             if(toDate) filteredTxns = filteredTxns.filter(t => t.date.substring(0,10) <= toDate);
@@ -2514,17 +2551,20 @@
             renderSuppliers();
             loadSettings();
             
+            // Ensure array exists before filtering
+            const txns = db.transactions || [];
+
             // Populate Purch History
             const ph = document.getElementById('purchHistory');
             ph.innerHTML = '';
-            db.transactions.filter(t => t.type === 'purchase').slice().reverse().forEach(t => {
+            txns.filter(t => t.type === 'purchase').slice().reverse().forEach(t => {
                 ph.innerHTML += `<div class="p-3 bg-white/5 rounded flex justify-between"><div><div class="font-bold text-white">${t.entityName}</div><div class="text-xs text-gray-500">${new Date(t.date).toLocaleDateString()}</div></div><div class="text-red-400 font-bold">-${t.total.toFixed(2)}</div></div>`;
             });
             
              // Populate Expense History
             const eh = document.getElementById('expHistory');
             eh.innerHTML = '';
-            db.transactions.filter(t => t.type === 'expense').slice().reverse().forEach(t => {
+            txns.filter(t => t.type === 'expense').slice().reverse().forEach(t => {
                 eh.innerHTML += `<div class="p-3 bg-white/5 rounded flex justify-between"><div><div class="font-bold text-white">${t.items[0].name}</div><div class="text-xs text-gray-500">${new Date(t.date).toLocaleDateString()}</div></div><div class="text-red-400 font-bold">-${t.total.toFixed(2)}</div></div>`;
             });
         }
